@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -155,5 +156,6 @@ func CreateEventHandler(env Env) func(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleHttpError(w http.ResponseWriter, err error) {
+	fmt.Printf("Http error occured: %s\n", err.Error())
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

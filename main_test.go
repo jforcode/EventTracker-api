@@ -53,8 +53,17 @@ func TestCreateEvent(t *testing.T) {
 			"title": "Test Event",
 			"note": "Some Test note",
 			"timestamp": "2018-11-25T11:26:08+00:00",
-			"type": "start",
-			"tags": [ "test1", "test2" ]
+			"type": {
+				"value": "start"
+			},
+			"tags": [
+				{
+					"value": "test1"
+				},
+				{
+					"value": "test2"
+				}
+			]
 		}`
 
 	eventId, err := CreateEvent(router, eventJson)
@@ -77,8 +86,8 @@ func TestCreateEvent(t *testing.T) {
 		Title:     "Test Event",
 		Note:      "Some Test note",
 		Timestamp: expectedTime,
-		Type:      "start",
-		Tags:      []string{"test1", "test2"},
+		Type:      &EventType{Value: "start"},
+		Tags:      []*EventTag{{Value: "test1"}, {Value: "test2"}},
 	}
 
 	if !cmp.Equal(expected, actual) {
