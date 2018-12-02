@@ -1,10 +1,8 @@
 package main
 
 import (
-	"encoding/json"
+	"database/sql"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 
@@ -51,22 +49,14 @@ func main() {
 	p := properties.MustLoadFile("app.properties", properties.UTF8)
 
 	url := p.GetString("url", "")
-
-	user := p.GetString("user", "")
-	password := p.GetString("password", "")
-	host := p.GetString("host", "")
-	database := p.GetString("db", "")
-	flags := make(map[string]string)
-	flags["parseTime"] = "true"
-
-	db, err := util.Db.GetDb(user, password, host, database, flags)
+	db, err := GetDbFromProperties(p)
 	if err != nil {
 		panic(err)
 	}
 
 	evtHandler := &EventsHandler{}
 	evtHandler.Init(db)
-	env := Env{
+	env := &Env{
 		evtHandler,
 	}
 
@@ -80,79 +70,15 @@ func main() {
 	log.Fatal(http.ListenAndServe(url, router))
 }
 
-func HealthCheckHandler(env Env) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "Alive!")
-	}
-}
+func GetDbFromProperties(p *properties.Properties) (*sql.DB, error) {
+	user := p.GetString("user", "")
+	password := p.GetString("password", "")
+	host := p.GetString("host", "")
+	database := p.GetString("db", "")
+	flags := make(map[string]string)
+	flags["parseTime"] = "true"
 
-func GetEventsHandler(env Env) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		events, err := env.EventsHandler.GetAllEvents()
-		if err != nil {
-			HandleHttpError(w, err)
-		}
-
-		resp := EventsResponse{events}
-		eventJson, err := json.Marshal(resp)
-		if err != nil {
-			HandleHttpError(w, err)
-		}
-
-		io.WriteString(w, string(eventJson))
-	}
-}
-
-func GetEventHandler(env Env) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		eventId := vars["eventId"]
-
-		event, err := env.EventsHandler.GetEvent(eventId)
-		if err != nil {
-			HandleHttpError(w, err)
-		}
-
-		resp := EventResponse{event}
-		eventJson, err := json.Marshal(resp)
-		if err != nil {
-			HandleHttpError(w, err)
-		}
-
-		io.WriteString(w, string(eventJson))
-	}
-}
-
-func CreateEventHandler(env Env) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var event = &Event{}
-		post, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			HandleHttpError(w, err)
-			return
-		}
-
-		err = json.Unmarshal(post, event)
-		if err != nil {
-			HandleHttpError(w, err)
-			return
-		}
-
-		eventId, err := env.EventsHandler.CreateEvent(event)
-		if err != nil {
-			HandleHttpError(w, err)
-			return
-		}
-
-		respJson := EventIdResponse{eventId}
-		resp, err := json.Marshal(respJson)
-		if err != nil {
-			HandleHttpError(w, err)
-			return
-		}
-
-		io.WriteString(w, string(resp))
-	}
+	return util.Db.GetDb(user, password, host, database, flags)
 }
 
 func HandleHttpError(w http.ResponseWriter, err error) {
