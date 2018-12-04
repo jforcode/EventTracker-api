@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -21,12 +22,12 @@ const (
 	GET_EVENT_TYPE_QUERY = `
 		SELECT ET._id, ET.value, ET.created_at, ET.updated_at, ET.status
 		FROM event_types ET
-		WHERE ET._id IN (<params>)`
+		WHERE ET._id IN (%s)`
 	GET_EVENT_TAGS_QUERY = `
 		SELECT ETG._id, ETG.value, ETG.created_at, ETG.updated_at, ETG.status, ETM.event_id
 		FROM event_tags ETG
 		JOIN event_tag_mappings ETM ON ETM.tag_id = ETG._id
-		WHERE ETM.event_id IN (<params>)`
+		WHERE ETM.event_id IN (%s)`
 	CREATE_EVENT_QUERY = `
 		INSERT INTO events (id, title, note, timestamp, type, tags)
 		VALUES (?, ?, ?, ?, ?, ?)`
@@ -165,7 +166,7 @@ func (handler *EventsHandler) getTypeIdTypeMappingsFromDb(typeIds []int) (map[in
 		paramsS = "?" + strings.Repeat(", ?", lenIds-1)
 	}
 
-	query := strings.Replace(GET_EVENT_TYPE_QUERY, "<params>", paramsS, 1)
+	query := fmt.Sprintf(GET_EVENT_TYPE_QUERY, paramsS)
 
 	params := make([]interface{}, lenIds)
 	for i, typeId := range typeIds {
@@ -205,7 +206,7 @@ func (handler *EventsHandler) getEventIdTagMappingsFromDb(eventIds []int) (map[i
 		paramsS = "?" + strings.Repeat(", ?", lenIds-1)
 	}
 
-	query := strings.Replace(GET_EVENT_TAGS_QUERY, "<params>", paramsS, 1)
+	query := fmt.Sprintf(GET_EVENT_TAGS_QUERY, paramsS)
 
 	params := make([]interface{}, lenIds)
 	for i, eventId := range eventIds {

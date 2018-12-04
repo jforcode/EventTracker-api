@@ -15,11 +15,15 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func TestHealthCheck(t *testing.T) {
-	req, err := http.NewRequest(HTTP_GET, ROUTE_GET_HEALTH, nil)
+func HandleTestError(t *testing.T, err error) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestHealthCheck(t *testing.T) {
+	req, err := http.NewRequest(HTTP_GET, ROUTE_GET_HEALTH, nil)
+	HandleTestError(t, err)
 
 	rr := httptest.NewRecorder()
 	router := mux.NewRouter()
