@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/jforcode/Util"
+	"github.com/google/go-cmp/cmp"
+	"github.com/jforcode/Go-DeepError"
+	"github.com/jforcode/Go-Util"
 	"github.com/magiconair/properties"
 )
 
@@ -36,6 +38,24 @@ func TestCreateEventDao(t *testing.T) {
 	}
 	eventId, err := handler.CreateEvent(event)
 
-	actualEvents, err := handler.GetAllEvents()
+}
 
+func AssertDbData(db *sql.DB, query string, args []interface{}, numCols int, expected [][]interface{}) (bool, error) {
+	fn := "AssertDbData"
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return false, deepError.New(fn, "query", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		rowData := make([]interface{}, numCols)
+		rows.Scan(rowData...)
+
+		if !cmp.Equal(rowData, expected) {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }

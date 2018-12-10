@@ -7,8 +7,8 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
-	"github.com/jforcode/DeepError"
-	"github.com/jforcode/Util"
+	"github.com/jforcode/Go-DeepError"
+	"github.com/jforcode/Go-Util"
 )
 
 const (

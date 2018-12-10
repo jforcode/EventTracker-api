@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/jforcode/Util"
+	"github.com/jforcode/Go-Util"
 
 	"github.com/gorilla/mux"
 	"github.com/magiconair/properties"
