@@ -6,28 +6,32 @@ import (
 	"strings"
 )
 
+// TestEventHandler is a dummy event handler which uses an array for its operations
 type TestEventHandler struct {
 	events      []*Event
-	lastEventId int
+	lastEventID int
 }
 
+// GetAllEvents gets all the events in the array
 func (handler *TestEventHandler) GetAllEvents() ([]*Event, error) {
 	return handler.events, nil
 }
 
-func (handler *TestEventHandler) GetEvent(eventId string) (*Event, error) {
+// GetEvent gets a specific event based on id from the array
+func (handler *TestEventHandler) GetEvent(eventID string) (*Event, error) {
 	for _, evt := range handler.events {
-		if strings.EqualFold(eventId, evt.Id) {
+		if strings.EqualFold(eventID, evt.ID) {
 			return evt, nil
 		}
 	}
 
-	return nil, errors.New("Event with id " + eventId + " not found")
+	return nil, errors.New("Event with id " + eventID + " not found")
 }
 
+// CreateEvent adds a new event to the array
 func (handler *TestEventHandler) CreateEvent(evt *Event) (string, error) {
-	handler.lastEventId++
-	evt.Id = strconv.Itoa(handler.lastEventId)
+	handler.lastEventID++
+	evt.ID = strconv.Itoa(handler.lastEventID)
 	handler.events = append(handler.events, evt)
-	return evt.Id, nil
+	return evt.ID, nil
 }

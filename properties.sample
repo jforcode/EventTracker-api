@@ -1,0 +1,6 @@
+url=<url to run api on>
+
+user=<db user>
+password=<db password>
+host=<db host>
+db=<db name>

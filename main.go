@@ -13,35 +13,38 @@ import (
 )
 
 const (
-	HTTP_GET  = "GET"
-	HTTP_POST = "POST"
+	httpGET  = "GET"
+	httpPOST = "POST"
 )
 
 const (
-	PARAM_EVENT_ID = "{eventId}"
+	paramEventID = "{eventID}"
 )
 
 const (
-	ROUTE_GET_HEALTH   = "/health"
-	ROUTE_GET_EVENTS   = "/events"
-	ROUTE_GET_EVENT    = "/event/" + PARAM_EVENT_ID
-	ROUTE_GET_EVENT_F  = "/event/%s"
-	ROUTE_CREATE_EVENT = "/event"
+	routeGetHealth   = "/health"
+	routeGetEvents   = "/events"
+	routeGetEvent    = "/event/" + paramEventID
+	routeGetEventF   = "/event/%s"
+	routeCreateEvent = "/event"
 )
 
-type EventIdResponse struct {
-	EventId string `json:"eventId"`
+// EventIDResponse represents the response to send back to client, in case of create event
+type EventIDResponse struct {
+	EventID string `json:"eventID"`
 }
 
+// EventResponse represents the response to send to client, in case of a get event
 type EventResponse struct {
 	Event *Event `json:"event"`
 }
 
+// EventsResponse represents the response to send to client, in case of a get all events call
 type EventsResponse struct {
 	Events []*Event `json:"events"`
 }
 
-type Env struct {
+type env struct {
 	EventsHandler IEventsHandler
 }
 
@@ -49,28 +52,28 @@ func main() {
 	p := properties.MustLoadFile("app.properties", properties.UTF8)
 
 	url := p.GetString("url", "")
-	db, err := GetDbFromProperties(p)
+	db, err := getDbFromProps(p)
 	if err != nil {
 		panic(err)
 	}
 
 	evtHandler := &EventsHandler{}
 	evtHandler.Init(db)
-	env := &Env{
+	env := &env{
 		evtHandler,
 	}
 
 	router := mux.NewRouter()
 
-	router.HandleFunc(ROUTE_GET_HEALTH, HealthCheckHandler(env)).Methods(HTTP_GET)
-	router.HandleFunc(ROUTE_GET_EVENTS, GetEventsHandler(env)).Methods(HTTP_GET)
-	router.HandleFunc(ROUTE_GET_EVENT, GetEventHandler(env)).Methods(HTTP_GET)
-	router.HandleFunc(ROUTE_CREATE_EVENT, CreateEventHandler(env)).Methods(HTTP_POST)
+	router.HandleFunc(routeGetHealth, HealthCheckHandler(env)).Methods(httpGET)
+	router.HandleFunc(routeGetEvents, GetEventsHandler(env)).Methods(httpGET)
+	router.HandleFunc(routeGetEvent, GetEventHandler(env)).Methods(httpGET)
+	router.HandleFunc(routeCreateEvent, CreateEventHandler(env)).Methods(httpPOST)
 
 	log.Fatal(http.ListenAndServe(url, router))
 }
 
-func GetDbFromProperties(p *properties.Properties) (*sql.DB, error) {
+func getDbFromProps(p *properties.Properties) (*sql.DB, error) {
 	user := p.GetString("user", "")
 	password := p.GetString("password", "")
 	host := p.GetString("host", "")
@@ -81,7 +84,7 @@ func GetDbFromProperties(p *properties.Properties) (*sql.DB, error) {
 	return util.Db.GetDb(user, password, host, database, flags)
 }
 
-func HandleHttpError(w http.ResponseWriter, err error) {
+func handleHTTPError(w http.ResponseWriter, err error) {
 	fmt.Printf("Http error occured: %s\n", err.Error())
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

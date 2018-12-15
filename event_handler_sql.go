@@ -6,51 +6,70 @@ import (
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/google/uuid"
 	"github.com/jforcode/Go-DeepError"
-	"github.com/jforcode/Go-Util"
 )
 
-const (
-	GET_EVENTS_QUERY = `
-		SELECT E._id, E.id, E.title, E.note, E.timestamp, E.type_id, E.created_at, E.updated_at, E.status
-		FROM events E`
-	GET_EVENT_QUERY = `
-		SELECT E._id, E.id, E.title, E.note, E.timestamp, E.type_id, E.created_at, E.updated_at, E.status
-		FROM events E
-		WHERE E.id = ?`
-	GET_EVENT_TYPE_QUERY = `
-		SELECT ET._id, ET.value, ET.created_at, ET.updated_at, ET.status
-		FROM event_types ET
-		WHERE ET._id IN (%s)`
-	GET_EVENT_TAGS_QUERY = `
-		SELECT ETG._id, ETG.value, ETG.created_at, ETG.updated_at, ETG.status, ETM.event_id
-		FROM event_tags ETG
-		JOIN event_tag_mappings ETM ON ETM.tag_id = ETG._id
-		WHERE ETM.event_id IN (%s)`
-	CREATE_EVENT_QUERY = `
-		INSERT INTO events (id, title, note, timestamp, type, tags)
-		VALUES (?, ?, ?, ?, ?, ?)`
+var (
+	queryGetEvents = fmt.Sprintf(`
+		SELECT E.%s, E.%s, E.%s, E.%s, E.%s, E.%s, E.%s, E.%s, E.%s
+		FROM %s E`,
+		colDbID, eventsColID, eventsColTitle, eventsColNote, eventsColCreatedAt, eventsColTypeID, colCreatedAt, colUpdatedAt, colStatus,
+		eventsTableName)
+
+	queryGetEvent = fmt.Sprintf(`
+		SELECT E.%s, E.%s, E.%s, E.%s, E.%s, E.%s, E.%s, E.%s, E.%s
+		FROM %s E
+		WHERE E.%s = ?`,
+		colDbID, eventsColID, eventsColTitle, eventsColNote, eventsColCreatedAt, eventsColTypeID, colCreatedAt, colUpdatedAt, colStatus,
+		eventsTableName,
+		eventsColID)
+
+	queryGetEventType = fmt.Sprintf(`
+		SELECT ET.%s, ET.%s, ET.%s, ET.%s, ET.%s
+		FROM %s ET
+		WHERE ET.%s IN (%s)`,
+		colDbID, eventTagsColValue, colCreatedAt, colUpdatedAt, colStatus,
+		eventTypesTableName,
+		colDbID, "%s")
+
+	queryGetEventTags = fmt.Sprintf(`
+		SELECT ETG.%s, ETG.%s, ETG.%s, ETG.%s, ETG.%s, ETM.%s
+		FROM %s ETG
+		JOIN %s ETM ON ETM.%s = ETG.%s
+		WHERE ETM.%s IN (%s)`,
+		colDbID, eventTagsColValue, colCreatedAt, colUpdatedAt, colStatus, eventTagMapColEventID,
+		eventTagsTableName,
+		eventTagMapTableName, eventTagMapColTagID, colDbID,
+		eventTagMapColEventID, "%s")
+
+	queryCreateEvent = fmt.Sprintf(`
+		INSERT INTO events (%s, %s, %s, %s, %s)
+		VALUES (?, ?, ?, ?, ?)`,
+		eventsColID, eventsColTitle, eventsColNote, eventsColCreatedAt, eventsColTypeID)
 )
 
+// IEventsHandler is the common interface to use for events business logic
 type IEventsHandler interface {
 	GetAllEvents() ([]*Event, error)
-	GetEvent(eventId string) (*Event, error)
+	GetEvent(eventID string) (*Event, error)
 	CreateEvent(*Event) (string, error)
 }
 
+// EventsHandler is a concrete event handler for mysql
 type EventsHandler struct {
 	db *sql.DB
 }
 
+// Init initialises the handler
 func (handler *EventsHandler) Init(db *sql.DB) {
 	handler.db = db
 }
 
+// GetAllEvents gets all events
 func (handler *EventsHandler) GetAllEvents() ([]*Event, error) {
 	fn := "GetEvents"
 
-	rows, err := handler.db.Query(GET_EVENTS_QUERY)
+	rows, err := handler.db.Query(queryGetEvents)
 	if err != nil {
 		return nil, deepError.New(fn, "query", err)
 	}
@@ -64,10 +83,11 @@ func (handler *EventsHandler) GetAllEvents() ([]*Event, error) {
 	return events, nil
 }
 
-func (handler *EventsHandler) GetEvent(eventId string) (*Event, error) {
+// GetEvent finds an event by event id
+func (handler *EventsHandler) GetEvent(eventID string) (*Event, error) {
 	fn := "GetEvent"
 
-	rows, err := handler.db.Query(GET_EVENT_QUERY, eventId)
+	rows, err := handler.db.Query(queryGetEvent, eventID)
 	if err != nil {
 		return nil, deepError.New(fn, "query", err)
 	}
@@ -85,58 +105,63 @@ func (handler *EventsHandler) GetEvent(eventId string) (*Event, error) {
 	return events[0], nil
 }
 
-func (handler *EventsHandler) CreateEvent(evt *Event) (string, error) {
-	fn := "CreateEvent"
+// CreateEvent creates an event
+func (handler *EventsHandler) CreateEvent(event *Event) (string, error) {
+	// fn := "CreateEvent"
+	//
+	// eventType, err := findEventTypeByValue(event.Type.Value)
+	// if err != nil {
+	// 	return "", err
+	// }
+	//
+	// event.ID = uuid.New().String()
+	// eventDbId, err := insertEvent(event)
+	// if err != nil {
+	// 	return "", deepError.New(fn, "insert event", err)
+	// }
 
-	evt.Id = uuid.New().String()
-	params := []interface{}{evt.Id, evt.Title, evt.Note, evt.Timestamp, evt.Type, evt.Tags}
-
-	_, err := util.Db.PrepareAndExec(handler.db, CREATE_EVENT_QUERY, params...)
-	if err != nil {
-		return "", deepError.New(fn, "prepare and exec", err)
-	}
-
-	return evt.Id, nil
+	// return event.ID, nil
+	return "", nil
 }
 
 func (handler *EventsHandler) getEventsFromRows(rows *sql.Rows) ([]*Event, error) {
 	fn := "getEventsFromDb"
 
 	mapEvents := make(map[int]Event, 0)
-	typeIds := make([]int, 0)
-	eventIds := make([]int, 0)
+	typeIDs := make([]int, 0)
+	eventIDs := make([]int, 0)
 
 	for rows.Next() {
 		event := Event{}
 		event.Type = &EventType{}
 		event.Tags = make([]*EventTag, 0)
 
-		err := rows.Scan(&event.DbId, &event.Id, &event.Title, &event.Note, &event.Timestamp, &event.Type.DbId, &event.CreatedAt, &event.UpdatedAt, &event.Status)
+		err := rows.Scan(&event.DbID, &event.ID, &event.Title, &event.Note, &event.Timestamp, &event.Type.DbID, &event.CreatedAt, &event.UpdatedAt, &event.Status)
 		if err != nil {
 			return nil, deepError.New(fn, "scan", err)
 		}
 
-		mapEvents[event.DbId] = event
-		typeIds = append(typeIds, event.Type.DbId)
-		eventIds = append(eventIds, event.DbId)
+		mapEvents[event.DbID] = event
+		typeIDs = append(typeIDs, event.Type.DbID)
+		eventIDs = append(eventIDs, event.DbID)
 	}
 
-	eventTypes, err := handler.getTypeIdTypeMappingsFromDb(typeIds)
+	eventTypes, err := handler.getTypeIDTypeMappingsFromDb(typeIDs)
 	if err != nil {
 		return nil, deepError.New(fn, "get type id type mappings", err)
 	}
 
 	for _, event := range mapEvents {
-		event.Type = eventTypes[event.Type.DbId]
+		event.Type = eventTypes[event.Type.DbID]
 	}
 
-	eventTags, err := handler.getEventIdTagMappingsFromDb(eventIds)
+	eventTags, err := handler.getEventIDTagMappingsFromDb(eventIDs)
 	if err != nil {
 		return nil, deepError.New(fn, "get event id tag mappings", err)
 	}
 
-	for eventId, tag := range eventTags {
-		event := mapEvents[eventId]
+	for eventID, tag := range eventTags {
+		event := mapEvents[eventID]
 		event.Tags = append(event.Tags, tag)
 	}
 
@@ -150,27 +175,27 @@ func (handler *EventsHandler) getEventsFromRows(rows *sql.Rows) ([]*Event, error
 	return events, nil
 }
 
-func (handler *EventsHandler) getTypeIdTypeMappingsFromDb(typeIds []int) (map[int]*EventType, error) {
+func (handler *EventsHandler) getTypeIDTypeMappingsFromDb(typeIDs []int) (map[int]*EventType, error) {
 	// returns a map of Type id and Type
-	fn := "getTypeIdTypeMappingsFromDb"
-	lenIds := len(typeIds)
+	fn := "getTypeIDTypeMappingsFromDb"
+	lenIDs := len(typeIDs)
 
-	if lenIds == 0 {
+	if lenIDs == 0 {
 		return map[int]*EventType{}, nil
 	}
 
 	paramsS := ""
-	if lenIds == 1 {
+	if lenIDs == 1 {
 		paramsS = "?"
 	} else {
-		paramsS = "?" + strings.Repeat(", ?", lenIds-1)
+		paramsS = "?" + strings.Repeat(", ?", lenIDs-1)
 	}
 
-	query := fmt.Sprintf(GET_EVENT_TYPE_QUERY, paramsS)
+	query := fmt.Sprintf(queryGetEventType, paramsS)
 
-	params := make([]interface{}, lenIds)
-	for i, typeId := range typeIds {
-		params[i] = typeId
+	params := make([]interface{}, lenIDs)
+	for i, typeID := range typeIDs {
+		params[i] = typeID
 	}
 
 	rows, err := handler.db.Query(query, params...)
@@ -179,38 +204,38 @@ func (handler *EventsHandler) getTypeIdTypeMappingsFromDb(typeIds []int) (map[in
 	}
 	defer rows.Close()
 
-	mapTypeIdType := make(map[int]*EventType, 0)
+	mapTypeIDType := make(map[int]*EventType, 0)
 	for rows.Next() {
 		eventType := &EventType{}
-		rows.Scan(&eventType.DbId, &eventType.Value, &eventType.CreatedAt, &eventType.UpdatedAt, &eventType.Status)
+		rows.Scan(&eventType.DbID, &eventType.Value, &eventType.CreatedAt, &eventType.UpdatedAt, &eventType.Status)
 
-		mapTypeIdType[eventType.DbId] = eventType
+		mapTypeIDType[eventType.DbID] = eventType
 	}
 
-	return mapTypeIdType, nil
+	return mapTypeIDType, nil
 }
 
-func (handler *EventsHandler) getEventIdTagMappingsFromDb(eventIds []int) (map[int]*EventTag, error) {
-	// returns a map of EventId and Event Tag
-	fn := "getEventIdTagMappingsFromDb"
-	lenIds := len(eventIds)
+func (handler *EventsHandler) getEventIDTagMappingsFromDb(eventIDs []int) (map[int]*EventTag, error) {
+	// returns a map of EventID and Event Tag
+	fn := "getEventIDTagMappingsFromDb"
+	lenIDs := len(eventIDs)
 
-	if lenIds == 0 {
+	if lenIDs == 0 {
 		return map[int]*EventTag{}, nil
 	}
 
 	paramsS := ""
-	if lenIds == 1 {
+	if lenIDs == 1 {
 		paramsS = "?"
 	} else {
-		paramsS = "?" + strings.Repeat(", ?", lenIds-1)
+		paramsS = "?" + strings.Repeat(", ?", lenIDs-1)
 	}
 
-	query := fmt.Sprintf(GET_EVENT_TAGS_QUERY, paramsS)
+	query := fmt.Sprintf(queryGetEventTags, paramsS)
 
-	params := make([]interface{}, lenIds)
-	for i, eventId := range eventIds {
-		params[i] = eventId
+	params := make([]interface{}, lenIDs)
+	for i, eventID := range eventIDs {
+		params[i] = eventID
 	}
 
 	rows, err := handler.db.Query(query, params...)
@@ -219,14 +244,14 @@ func (handler *EventsHandler) getEventIdTagMappingsFromDb(eventIds []int) (map[i
 	}
 	defer rows.Close()
 
-	mapEventIdTag := make(map[int]*EventTag, 0)
+	mapEventIDTag := make(map[int]*EventTag, 0)
 	for rows.Next() {
 		eventTag := &EventTag{}
-		var eventId int
-		rows.Scan(&eventTag.DbId, &eventTag.Value, &eventTag.CreatedAt, &eventTag.UpdatedAt, &eventTag.Status, &eventId)
+		var eventID int
+		rows.Scan(&eventTag.DbID, &eventTag.Value, &eventTag.CreatedAt, &eventTag.UpdatedAt, &eventTag.Status, &eventID)
 
-		mapEventIdTag[eventId] = eventTag
+		mapEventIDTag[eventID] = eventTag
 	}
 
-	return mapEventIdTag, nil
+	return mapEventIDTag, nil
 }

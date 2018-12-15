@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -12,7 +13,7 @@ import (
 
 func InitDb() *sql.DB {
 	p := properties.MustLoadFile("test.properties", properties.UTF8)
-	db, err := GetDbFromProperties(p)
+	db, err := getDbFromProps(p)
 	if err != nil {
 		panic(err)
 	}
@@ -22,7 +23,15 @@ func InitDb() *sql.DB {
 
 func TestCreateEventDao(t *testing.T) {
 	db := InitDb()
-	util.Db.ClearTables(db, EVENTS_TABLE_NAME, EVENT_TAGS_TABLE_NAME, EVENT_TYPES_TABLE_NAME, EVENT_TAG_MAPPINGS_TABLE_NAME)
+
+	// setup
+	err := util.Db.ClearTables(db, eventsTableName, eventTagsTableName, eventTagMapTableName)
+	HandleTestError(t, err)
+
+	insertTypesQueryF := "INSERT INTO %s (%s) VALUES ('start')"
+	insertTypesQuery := fmt.Sprintf(insertTypesQueryF, eventTypesTableName, eventTypesColValue)
+	_, err = util.Db.PrepareAndExec(db, insertTypesQuery)
+	HandleTestError(t, err)
 
 	handler := &EventsHandler{db}
 
@@ -36,8 +45,14 @@ func TestCreateEventDao(t *testing.T) {
 			&EventTag{Value: "tag1"},
 		},
 	}
-	eventId, err := handler.CreateEvent(event)
+	eventID, err := handler.CreateEvent(event)
+	if err != nil {
+		HandleTestError(t, err)
+	}
 
+	fmt.Println(eventID)
+
+	util.Db.ClearTables(db, eventsTableName, eventTagsTableName, eventTagMapTableName)
 }
 
 func AssertDbData(db *sql.DB, query string, args []interface{}, numCols int, expected [][]interface{}) (bool, error) {

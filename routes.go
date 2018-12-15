@@ -9,74 +9,81 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func HealthCheckHandler(env *Env) func(w http.ResponseWriter, r *http.Request) {
+// HealthCheckHandler is an api route to just check the health of the api.
+func HealthCheckHandler(env *env) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "Alive!")
 	}
 }
 
-func GetEventsHandler(env *Env) func(w http.ResponseWriter, r *http.Request) {
+// GetEventsHandler is a route to return all the events available.
+// NOTE: unpaginated. unauthenticated
+func GetEventsHandler(env *env) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		events, err := env.EventsHandler.GetAllEvents()
 		if err != nil {
-			HandleHttpError(w, err)
+			handleHTTPError(w, err)
 		}
 
 		resp := EventsResponse{events}
-		eventJson, err := json.Marshal(resp)
+		eventJSON, err := json.Marshal(resp)
 		if err != nil {
-			HandleHttpError(w, err)
+			handleHTTPError(w, err)
 		}
 
-		io.WriteString(w, string(eventJson))
+		io.WriteString(w, string(eventJSON))
 	}
 }
 
-func GetEventHandler(env *Env) func(w http.ResponseWriter, r *http.Request) {
+// GetEventHandler is a route to return a specific event based on the event id
+// TODO: if no event found, return error
+func GetEventHandler(env *env) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		eventId := vars["eventId"]
+		eventID := vars["eventID"]
 
-		event, err := env.EventsHandler.GetEvent(eventId)
+		event, err := env.EventsHandler.GetEvent(eventID)
 		if err != nil {
-			HandleHttpError(w, err)
+			handleHTTPError(w, err)
 		}
 
 		resp := EventResponse{event}
-		eventJson, err := json.Marshal(resp)
+		eventJSON, err := json.Marshal(resp)
 		if err != nil {
-			HandleHttpError(w, err)
+			handleHTTPError(w, err)
 		}
 
-		io.WriteString(w, string(eventJson))
+		io.WriteString(w, string(eventJSON))
 	}
 }
 
-func CreateEventHandler(env *Env) func(w http.ResponseWriter, r *http.Request) {
+// CreateEventHandler is a route to create a new event in the system.
+// Not an update call, will decide later if to create new, or use this only for update
+func CreateEventHandler(env *env) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var event = &Event{}
 		post, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			HandleHttpError(w, err)
+			handleHTTPError(w, err)
 			return
 		}
 
 		err = json.Unmarshal(post, event)
 		if err != nil {
-			HandleHttpError(w, err)
+			handleHTTPError(w, err)
 			return
 		}
 
-		eventId, err := env.EventsHandler.CreateEvent(event)
+		eventID, err := env.EventsHandler.CreateEvent(event)
 		if err != nil {
-			HandleHttpError(w, err)
+			handleHTTPError(w, err)
 			return
 		}
 
-		respJson := EventIdResponse{eventId}
-		resp, err := json.Marshal(respJson)
+		respJSON := EventIDResponse{eventID}
+		resp, err := json.Marshal(respJSON)
 		if err != nil {
-			HandleHttpError(w, err)
+			handleHTTPError(w, err)
 			return
 		}
 

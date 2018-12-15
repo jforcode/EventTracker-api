@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -22,14 +21,14 @@ func HandleTestError(t *testing.T, err error) {
 }
 
 func TestHealthCheck(t *testing.T) {
-	req, err := http.NewRequest(HTTP_GET, ROUTE_GET_HEALTH, nil)
+	req, err := http.NewRequest(httpGET, routeGetHealth, nil)
 	HandleTestError(t, err)
 
 	rr := httptest.NewRecorder()
 	router := mux.NewRouter()
-	env := &Env{}
+	env := &env{}
 
-	router.HandleFunc(ROUTE_GET_HEALTH, HealthCheckHandler(env))
+	router.HandleFunc(routeGetHealth, HealthCheckHandler(env))
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
@@ -44,14 +43,14 @@ func TestHealthCheck(t *testing.T) {
 
 func TestCreateEvent(t *testing.T) {
 	router := mux.NewRouter()
-	env := &Env{
+	env := &env{
 		&TestEventHandler{},
 	}
 
-	router.HandleFunc(ROUTE_CREATE_EVENT, CreateEventHandler(env)).Methods(HTTP_POST)
-	router.HandleFunc(ROUTE_GET_EVENT, GetEventHandler(env)).Methods(HTTP_GET)
+	router.HandleFunc(routeCreateEvent, CreateEventHandler(env)).Methods(httpPOST)
+	router.HandleFunc(routeGetEvent, GetEventHandler(env)).Methods(httpGET)
 
-	eventJson := `
+	eventJSON := `
 		{
 			"title": "Test Event",
 			"note": "Some Test note",
@@ -69,12 +68,12 @@ func TestCreateEvent(t *testing.T) {
 			]
 		}`
 
-	eventId, err := CreateEvent(router, eventJson)
+	eventID, err := CreateEvent(router, eventJSON)
 	if err != nil {
 		t.Fatalf("Error while creating event: %+v", err.Error())
 	}
 
-	actual, err := GetEvent(router, eventId)
+	actual, err := GetEvent(router, eventID)
 	if err != nil {
 		t.Fatalf("Error while getting event: %+v", err.Error())
 	}
@@ -85,7 +84,7 @@ func TestCreateEvent(t *testing.T) {
 	}
 
 	expected := &Event{
-		Id:        eventId,
+		ID:        eventID,
 		Title:     "Test Event",
 		Note:      "Some Test note",
 		Timestamp: expectedTime,
@@ -98,8 +97,8 @@ func TestCreateEvent(t *testing.T) {
 	}
 }
 
-func CreateEvent(router *mux.Router, eventJson string) (string, error) {
-	req, err := http.NewRequest(HTTP_POST, ROUTE_CREATE_EVENT, strings.NewReader(eventJson))
+func CreateEvent(router *mux.Router, eventJSON string) (string, error) {
+	req, err := http.NewRequest(httpPOST, routeCreateEvent, strings.NewReader(eventJSON))
 	if err != nil {
 		return "", err
 	}
@@ -109,7 +108,7 @@ func CreateEvent(router *mux.Router, eventJson string) (string, error) {
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
-		return "", errors.New(fmt.Sprintf("Status Not OK. Got status code: %d", status))
+		return "", fmt.Errorf("Status Not OK. Got status code: %d", status)
 	}
 
 	resp, err := ioutil.ReadAll(rr.Body)
@@ -117,18 +116,18 @@ func CreateEvent(router *mux.Router, eventJson string) (string, error) {
 		return "", err
 	}
 
-	eventIdResp := EventIdResponse{}
-	err = json.Unmarshal(resp, &eventIdResp)
+	eventIDResp := EventIDResponse{}
+	err = json.Unmarshal(resp, &eventIDResp)
 	if err != nil {
 		return "", err
 	}
 
-	return eventIdResp.EventId, nil
+	return eventIDResp.EventID, nil
 }
 
-func GetEvent(router *mux.Router, eventId string) (*Event, error) {
-	path := fmt.Sprintf(ROUTE_GET_EVENT_F, eventId)
-	req, err := http.NewRequest(HTTP_GET, path, nil)
+func GetEvent(router *mux.Router, eventID string) (*Event, error) {
+	path := fmt.Sprintf(routeGetEventF, eventID)
+	req, err := http.NewRequest(httpGET, path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +137,7 @@ func GetEvent(router *mux.Router, eventId string) (*Event, error) {
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
-		return nil, errors.New(fmt.Sprintf("Status Not OK. Got status code: %d", status))
+		return nil, fmt.Errorf("Status Not OK. Got status code: %d", status)
 	}
 
 	respGet, err := ioutil.ReadAll(rr.Body)
@@ -156,7 +155,7 @@ func GetEvent(router *mux.Router, eventId string) (*Event, error) {
 }
 
 func GetAllEvents(router *mux.Router) ([]*Event, error) {
-	req, err := http.NewRequest(HTTP_GET, ROUTE_GET_EVENTS, nil)
+	req, err := http.NewRequest(httpGET, routeGetEvents, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +165,7 @@ func GetAllEvents(router *mux.Router) ([]*Event, error) {
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
-		return nil, errors.New(fmt.Sprintf("Status Not OK. Got status code: %d", status))
+		return nil, fmt.Errorf("Status Not OK. Got status code: %d", status)
 	}
 
 	respGet, err := ioutil.ReadAll(rr.Body)
