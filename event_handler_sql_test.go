@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -28,11 +29,6 @@ func TestCreateEventDao(t *testing.T) {
 	err := util.Db.ClearTables(db, eventsTableName, eventTagsTableName, eventTagMapTableName)
 	HandleTestError(t, err)
 
-	insertTypesQueryF := "INSERT INTO %s (%s) VALUES ('start')"
-	insertTypesQuery := fmt.Sprintf(insertTypesQueryF, eventTypesTableName, eventTypesColValue)
-	_, err = util.Db.PrepareAndExec(db, insertTypesQuery)
-	HandleTestError(t, err)
-
 	handler := &EventsHandler{db}
 
 	event := &Event{
@@ -43,14 +39,31 @@ func TestCreateEventDao(t *testing.T) {
 		},
 		Tags: []*EventTag{
 			&EventTag{Value: "tag1"},
+			&EventTag{Value: "tag2"},
 		},
 	}
+
 	eventID, err := handler.CreateEvent(event)
 	if err != nil {
 		HandleTestError(t, err)
 	}
 
-	fmt.Println(eventID)
+	eventType, err1 := findEventTypeByValue("start")
+	HandleTestError(t, err1)
+	if eventType == nil {
+		HandleTestError(t, errors.New("Event Type not found"))
+	}
+
+	query := fmt.Sprintf(
+		"SELECT %s, %s, %s, %s FROM %s",
+		eventsColID, eventsColTitle, eventsColNote, eventsColTypeID, eventsTableName,
+	)
+	AssertDbData(db, query, make([]interface{}, 0), 4, [][]interface{}{
+		[]interface{}{eventID, "Some Test Event", "Some Test Note", eventType.DbID},
+	})
+
+	// assert tags are created
+	// assert tag mappings are created
 
 	util.Db.ClearTables(db, eventsTableName, eventTagsTableName, eventTagMapTableName)
 }
@@ -66,6 +79,7 @@ func AssertDbData(db *sql.DB, query string, args []interface{}, numCols int, exp
 	for rows.Next() {
 		rowData := make([]interface{}, numCols)
 		rows.Scan(rowData...)
+		fmt.Printf("Got scan data: %+v", rowData)
 
 		if !cmp.Equal(rowData, expected) {
 			return false, nil

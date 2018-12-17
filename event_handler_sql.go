@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 	"github.com/jforcode/Go-DeepError"
 )
 
@@ -107,21 +108,80 @@ func (handler *EventsHandler) GetEvent(eventID string) (*Event, error) {
 
 // CreateEvent creates an event
 func (handler *EventsHandler) CreateEvent(event *Event) (string, error) {
-	// fn := "CreateEvent"
-	//
-	// eventType, err := findEventTypeByValue(event.Type.Value)
-	// if err != nil {
-	// 	return "", err
-	// }
-	//
-	// event.ID = uuid.New().String()
-	// eventDbId, err := insertEvent(event)
-	// if err != nil {
-	// 	return "", deepError.New(fn, "insert event", err)
-	// }
+	fn := "CreateEvent"
 
-	// return event.ID, nil
-	return "", nil
+	eventType, err := handler.findOrCreateEventType(event.Type.Value)
+	if err != nil {
+		return "", deepError.New(fn, "find or create event type", err)
+	}
+	event.Type = eventType
+
+	updatedEventTags := make([]*EventTag, len(event.Tags))
+	for index, eventTag := range event.Tags {
+		foundEventTag, err2 := handler.findOrCreateEventTag(eventTag.Value)
+		if err2 != nil {
+			return "", deepError.New(fn, "find or create event tag", err2)
+		}
+		updatedEventTags[index] = foundEventTag
+	}
+	event.Tags = updatedEventTags
+
+	event.ID = uuid.New().String()
+	eventDbID, err3 := insertEvent(event)
+	if err3 != nil {
+		return "", deepError.New(fn, "insert event", err3)
+	}
+	event.DbID = eventDbID
+
+	for _, eventTag := range event.Tags {
+		eventTagMap := &EventTagMap{EventID: event.DbID, TagID: eventTag.DbID}
+		_, err4 := insertEventTagMapping(eventTagMap)
+		if err4 != nil {
+			return "", deepError.New(fn, "insert event tag map", err4)
+		}
+	}
+
+	return event.ID, nil
+}
+
+func (handler *EventsHandler) findOrCreateEventType(value string) (*EventType, error) {
+	fn := "findOrCreateEventType"
+
+	eventType, err := findEventTypeByValue(value)
+	if err != nil {
+		return nil, deepError.New(fn, "find event type", err)
+	}
+
+	if eventType == nil {
+		eventType = &EventType{Value: value}
+		eventTypeDbID, err2 := insertEventType(eventType)
+		if err2 != nil {
+			return nil, deepError.New(fn, "insert event type", err)
+		}
+		eventType.DbID = eventTypeDbID
+	}
+
+	return eventType, nil
+}
+
+func (handler *EventsHandler) findOrCreateEventTag(value string) (*EventTag, error) {
+	fn := "findOrCreateEventTag"
+
+	eventTag, err := findEventTagByValue(value)
+	if err != nil {
+		return nil, deepError.New(fn, "find event tag by value", err)
+	}
+
+	if eventTag == nil {
+		eventTag = &EventTag{Value: value}
+		eventTagDbID, err := insertEventTag(eventTag)
+		if err != nil {
+			return nil, deepError.New(fn, "insert event tag", err)
+		}
+		eventTag.DbID = eventTagDbID
+	}
+
+	return eventTag, nil
 }
 
 func (handler *EventsHandler) getEventsFromRows(rows *sql.Rows) ([]*Event, error) {

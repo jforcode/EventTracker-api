@@ -48,6 +48,6 @@ type EventTag struct {
 // EventTagMap is the Db model for the mapping between an event and a tag, as it is a m:n mapping
 type EventTagMap struct {
 	DbRecord
-	EventID string `json:"event_id"`
-	TagID   string `json:"tag_id"`
+	EventID int
+	TagID   int
 }

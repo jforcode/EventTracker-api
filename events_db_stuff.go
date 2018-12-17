@@ -4,15 +4,7 @@ func findEventByID(eventID string) (*Event, error) {
 	return nil, nil
 }
 
-func findEventTypeByID(eventTypeDbID int) (*EventType, error) {
-	return nil, nil
-}
-
 func findEventTypeByValue(eventTypeValue string) (*EventType, error) {
-	return nil, nil
-}
-
-func findEventTagByID(eventTagDbID int) (*EventTag, error) {
 	return nil, nil
 }
 
@@ -21,6 +13,10 @@ func findEventTagByValue(eventTagValue string) (*EventTag, error) {
 }
 
 func insertEvent(event *Event) (int, error) {
+	return -1, nil
+}
+
+func insertEventType(eventType *EventType) (int, error) {
 	return -1, nil
 }
 
