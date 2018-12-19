@@ -16,7 +16,7 @@ const (
 
 // DbRecord is the base model for a database struct
 type DbRecord struct {
-	DbID      int
+	DbID      int64
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Status    string
@@ -48,6 +48,6 @@ type EventTag struct {
 // EventTagMap is the Db model for the mapping between an event and a tag, as it is a m:n mapping
 type EventTagMap struct {
 	DbRecord
-	EventID int
-	TagID   int
+	EventID int64
+	TagID   int64
 }

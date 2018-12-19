@@ -58,11 +58,13 @@ type IEventsHandler interface {
 
 // EventsHandler is a concrete event handler for mysql
 type EventsHandler struct {
-	db *sql.DB
+	db      *sql.DB
+	dbStuff *dbStuff
 }
 
 // Init initialises the handler
 func (handler *EventsHandler) Init(db *sql.DB) {
+	handler.dbStuff = &dbStuff{db}
 	handler.db = db
 }
 
@@ -107,6 +109,7 @@ func (handler *EventsHandler) GetEvent(eventID string) (*Event, error) {
 }
 
 // CreateEvent creates an event
+// TODO: transactions
 func (handler *EventsHandler) CreateEvent(event *Event) (string, error) {
 	fn := "CreateEvent"
 
@@ -127,7 +130,8 @@ func (handler *EventsHandler) CreateEvent(event *Event) (string, error) {
 	event.Tags = updatedEventTags
 
 	event.ID = uuid.New().String()
-	eventDbID, err3 := insertEvent(event)
+	event.Timestamp = event.Timestamp.UTC()
+	eventDbID, err3 := handler.dbStuff.insertEvent(event)
 	if err3 != nil {
 		return "", deepError.New(fn, "insert event", err3)
 	}
@@ -135,7 +139,7 @@ func (handler *EventsHandler) CreateEvent(event *Event) (string, error) {
 
 	for _, eventTag := range event.Tags {
 		eventTagMap := &EventTagMap{EventID: event.DbID, TagID: eventTag.DbID}
-		_, err4 := insertEventTagMapping(eventTagMap)
+		_, err4 := handler.dbStuff.insertEventTagMapping(eventTagMap)
 		if err4 != nil {
 			return "", deepError.New(fn, "insert event tag map", err4)
 		}
@@ -147,14 +151,14 @@ func (handler *EventsHandler) CreateEvent(event *Event) (string, error) {
 func (handler *EventsHandler) findOrCreateEventType(value string) (*EventType, error) {
 	fn := "findOrCreateEventType"
 
-	eventType, err := findEventTypeByValue(value)
+	eventType, err := handler.dbStuff.findEventTypeByValue(value)
 	if err != nil {
 		return nil, deepError.New(fn, "find event type", err)
 	}
 
 	if eventType == nil {
 		eventType = &EventType{Value: value}
-		eventTypeDbID, err2 := insertEventType(eventType)
+		eventTypeDbID, err2 := handler.dbStuff.insertEventType(eventType)
 		if err2 != nil {
 			return nil, deepError.New(fn, "insert event type", err)
 		}
@@ -167,14 +171,14 @@ func (handler *EventsHandler) findOrCreateEventType(value string) (*EventType, e
 func (handler *EventsHandler) findOrCreateEventTag(value string) (*EventTag, error) {
 	fn := "findOrCreateEventTag"
 
-	eventTag, err := findEventTagByValue(value)
+	eventTag, err := handler.dbStuff.findEventTagByValue(value)
 	if err != nil {
 		return nil, deepError.New(fn, "find event tag by value", err)
 	}
 
 	if eventTag == nil {
 		eventTag = &EventTag{Value: value}
-		eventTagDbID, err := insertEventTag(eventTag)
+		eventTagDbID, err := handler.dbStuff.insertEventTag(eventTag)
 		if err != nil {
 			return nil, deepError.New(fn, "insert event tag", err)
 		}
@@ -187,9 +191,9 @@ func (handler *EventsHandler) findOrCreateEventTag(value string) (*EventTag, err
 func (handler *EventsHandler) getEventsFromRows(rows *sql.Rows) ([]*Event, error) {
 	fn := "getEventsFromDb"
 
-	mapEvents := make(map[int]Event, 0)
-	typeIDs := make([]int, 0)
-	eventIDs := make([]int, 0)
+	mapEvents := make(map[int64]Event, 0)
+	typeIDs := make([]int64, 0)
+	eventIDs := make([]int64, 0)
 
 	for rows.Next() {
 		event := Event{}
@@ -235,13 +239,13 @@ func (handler *EventsHandler) getEventsFromRows(rows *sql.Rows) ([]*Event, error
 	return events, nil
 }
 
-func (handler *EventsHandler) getTypeIDTypeMappingsFromDb(typeIDs []int) (map[int]*EventType, error) {
+func (handler *EventsHandler) getTypeIDTypeMappingsFromDb(typeIDs []int64) (map[int64]*EventType, error) {
 	// returns a map of Type id and Type
 	fn := "getTypeIDTypeMappingsFromDb"
 	lenIDs := len(typeIDs)
 
 	if lenIDs == 0 {
-		return map[int]*EventType{}, nil
+		return map[int64]*EventType{}, nil
 	}
 
 	paramsS := ""
@@ -264,7 +268,7 @@ func (handler *EventsHandler) getTypeIDTypeMappingsFromDb(typeIDs []int) (map[in
 	}
 	defer rows.Close()
 
-	mapTypeIDType := make(map[int]*EventType, 0)
+	mapTypeIDType := make(map[int64]*EventType, 0)
 	for rows.Next() {
 		eventType := &EventType{}
 		rows.Scan(&eventType.DbID, &eventType.Value, &eventType.CreatedAt, &eventType.UpdatedAt, &eventType.Status)
@@ -275,13 +279,13 @@ func (handler *EventsHandler) getTypeIDTypeMappingsFromDb(typeIDs []int) (map[in
 	return mapTypeIDType, nil
 }
 
-func (handler *EventsHandler) getEventIDTagMappingsFromDb(eventIDs []int) (map[int]*EventTag, error) {
+func (handler *EventsHandler) getEventIDTagMappingsFromDb(eventIDs []int64) (map[int64]*EventTag, error) {
 	// returns a map of EventID and Event Tag
 	fn := "getEventIDTagMappingsFromDb"
 	lenIDs := len(eventIDs)
 
 	if lenIDs == 0 {
-		return map[int]*EventTag{}, nil
+		return map[int64]*EventTag{}, nil
 	}
 
 	paramsS := ""
@@ -304,10 +308,10 @@ func (handler *EventsHandler) getEventIDTagMappingsFromDb(eventIDs []int) (map[i
 	}
 	defer rows.Close()
 
-	mapEventIDTag := make(map[int]*EventTag, 0)
+	mapEventIDTag := make(map[int64]*EventTag, 0)
 	for rows.Next() {
 		eventTag := &EventTag{}
-		var eventID int
+		var eventID int64
 		rows.Scan(&eventTag.DbID, &eventTag.Value, &eventTag.CreatedAt, &eventTag.UpdatedAt, &eventTag.Status, &eventID)
 
 		mapEventIDTag[eventID] = eventTag
