@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -67,7 +66,7 @@ func TestCreateEventDao(t *testing.T) {
 	typeIDStr := strconv.Itoa(int(eventType.DbID))
 	equalEvents, err := CompareDbData(db, queryEvents, make([]interface{}, 0), 5, [][]string{
 		{eventID, "Some Test Event", "Some Test Note", typeIDStr, now.UTC().Format(time.RFC3339Nano)},
-	}, true)
+	}, false)
 	HandleTestError(t, err)
 	if !equalEvents {
 		HandleTestError(t, errors.New("Invalid event data"))
@@ -111,7 +110,7 @@ func TestCreateEventDao(t *testing.T) {
 		HandleTestError(t, errors.New("Invalid tag event maps data"))
 	}
 
-	// util.Db.ClearTables(db, eventTagMapTableName, eventTagsTableName, eventsTableName)
+	util.Db.ClearTables(db, eventTagMapTableName, eventTagsTableName, eventsTableName)
 }
 
 func CompareDbData(db *sql.DB, query string, args []interface{}, numCols int, expected [][]string, debug bool) (bool, error) {
@@ -139,19 +138,7 @@ func CompareDbData(db *sql.DB, query string, args []interface{}, numCols int, ex
 	}
 
 	if debug {
-		fmt.Println("\nActual")
-		for _, act := range actual {
-			for _, val := range act {
-				fmt.Println(val, reflect.TypeOf(val))
-			}
-		}
-
-		fmt.Println("\nExpected")
-		for _, exp := range expected {
-			for _, val := range exp {
-				fmt.Println(val, reflect.TypeOf(val))
-			}
-		}
+		fmt.Printf("\nActual\n%+v\nExpected\n%+v\n", actual, expected)
 	}
 
 	if len(actual) != len(expected) {

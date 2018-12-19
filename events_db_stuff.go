@@ -99,7 +99,6 @@ func (dbStuff *dbStuff) insertEvent(event *Event) (int64, error) {
 		"INSERT INTO %s (%s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?)",
 		eventsTableName, eventsColID, eventsColTitle, eventsColNote, eventsColTypeID, eventsColCreatedAt)
 
-	fmt.Println(event.Timestamp)
 	res, err := util.Db.PrepareAndExec(dbStuff.db, query, event.ID, event.Title, event.Note, event.Type.DbID, event.Timestamp)
 	if err != nil {
 		return -1, deepError.New(fn, "prepare and exec", err)
