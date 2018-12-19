@@ -69,19 +69,13 @@ func TestCreateEvent(t *testing.T) {
 		}`
 
 	eventID, err := CreateEvent(router, eventJSON)
-	if err != nil {
-		t.Fatalf("Error while creating event: %+v", err.Error())
-	}
+	HandleTestError(t, err)
 
 	actual, err := GetEvent(router, eventID)
-	if err != nil {
-		t.Fatalf("Error while getting event: %+v", err.Error())
-	}
+	HandleTestError(t, err)
 
 	expectedTime, err := time.Parse(time.RFC3339, "2018-11-25T11:26:08+00:00")
-	if err != nil {
-		t.Fatalf("Failed to parse time: %+v", "2018-11-25T11:26:08+00:00")
-	}
+	HandleTestError(t, err)
 
 	expected := &Event{
 		ID:        eventID,

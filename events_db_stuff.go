@@ -104,12 +104,7 @@ func (dbStuff *dbStuff) insertEvent(event *Event) (int64, error) {
 		return -1, deepError.New(fn, "prepare and exec", err)
 	}
 
-	lastID, err := res.LastInsertId()
-	if err != nil {
-		return -1, deepError.New(fn, "last insert id", err)
-	}
-
-	return lastID, nil
+	return getDbID(res)
 }
 
 func (dbStuff *dbStuff) insertEventType(eventType *EventType) (int64, error) {
@@ -124,12 +119,8 @@ func (dbStuff *dbStuff) insertEventType(eventType *EventType) (int64, error) {
 		return -1, deepError.New(fn, "prepare and exec", err)
 	}
 
-	lastID, err := res.LastInsertId()
-	if err != nil {
-		return -1, deepError.New(fn, "last insert id", err)
-	}
+	return getDbID(res)
 
-	return lastID, nil
 }
 
 func (dbStuff *dbStuff) insertEventTag(eventTag *EventTag) (int64, error) {
@@ -144,12 +135,8 @@ func (dbStuff *dbStuff) insertEventTag(eventTag *EventTag) (int64, error) {
 		return -1, deepError.New(fn, "prepare and exec", err)
 	}
 
-	lastID, err := res.LastInsertId()
-	if err != nil {
-		return -1, deepError.New(fn, "last insert id", err)
-	}
+	return getDbID(res)
 
-	return lastID, nil
 }
 
 func (dbStuff *dbStuff) insertEventTagMapping(eventTagMap *EventTagMap) (int64, error) {
@@ -163,6 +150,12 @@ func (dbStuff *dbStuff) insertEventTagMapping(eventTagMap *EventTagMap) (int64, 
 	if err != nil {
 		return -1, deepError.New(fn, "prepare and exec", err)
 	}
+
+	return getDbID(res)
+}
+
+func getDbID(res sql.Result) (int64, error) {
+	fn := "getDbID"
 
 	lastID, err := res.LastInsertId()
 	if err != nil {
