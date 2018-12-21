@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
@@ -130,7 +129,7 @@ func (handler *EventsHandler) CreateEvent(event *Event) (string, error) {
 	event.Tags = updatedEventTags
 
 	event.ID = uuid.New().String()
-	event.Timestamp = event.Timestamp.UTC()
+	event.UserCreatedAt = event.UserCreatedAt.UTC()
 	eventDbID, err3 := handler.dbStuff.insertEvent(event)
 	if err3 != nil {
 		return "", deepError.New(fn, "insert event", err3)
@@ -191,131 +190,35 @@ func (handler *EventsHandler) findOrCreateEventTag(value string) (*EventTag, err
 func (handler *EventsHandler) getEventsFromRows(rows *sql.Rows) ([]*Event, error) {
 	fn := "getEventsFromDb"
 
-	mapEvents := make(map[int64]Event, 0)
-	typeIDs := make([]int64, 0)
-	eventIDs := make([]int64, 0)
+	events := make([]*Event, 0)
 
 	for rows.Next() {
-		event := Event{}
+		event := &Event{}
 		event.Type = &EventType{}
 		event.Tags = make([]*EventTag, 0)
 
-		err := rows.Scan(&event.DbID, &event.ID, &event.Title, &event.Note, &event.Timestamp, &event.Type.DbID, &event.CreatedAt, &event.UpdatedAt, &event.Status)
+		err := rows.Scan(&event.DbID, &event.ID, &event.Title, &event.Note, &event.UserCreatedAt, &event.Type.DbID, &event.CreatedAt, &event.UpdatedAt, &event.Status)
 		if err != nil {
 			return nil, deepError.New(fn, "scan", err)
 		}
 
-		mapEvents[event.DbID] = event
-		typeIDs = append(typeIDs, event.Type.DbID)
-		eventIDs = append(eventIDs, event.DbID)
-	}
+		typeID := event.Type.DbID
+		eventType, err := handler.dbStuff.findEventTypeByID(typeID)
+		if err != nil {
+			return nil, deepError.New(fn, "find event type by id", err)
+		}
 
-	eventTypes, err := handler.getTypeIDTypeMappingsFromDb(typeIDs)
-	if err != nil {
-		return nil, deepError.New(fn, "get type id type mappings", err)
-	}
+		event.Type = eventType
 
-	for _, event := range mapEvents {
-		event.Type = eventTypes[event.Type.DbID]
-	}
+		eventTags, err := handler.dbStuff.findEventTagsByEventID(event.ID)
+		if err != nil {
+			return nil, deepError.New(fn, "find event tags by event id", err)
+		}
 
-	eventTags, err := handler.getEventIDTagMappingsFromDb(eventIDs)
-	if err != nil {
-		return nil, deepError.New(fn, "get event id tag mappings", err)
-	}
+		event.Tags = eventTags
 
-	for eventID, tag := range eventTags {
-		event := mapEvents[eventID]
-		event.Tags = append(event.Tags, tag)
-	}
-
-	events := make([]*Event, len(mapEvents))
-	i := 0
-	for _, event := range mapEvents {
-		events[i] = &event
-		i++
+		events = append(events, event)
 	}
 
 	return events, nil
-}
-
-func (handler *EventsHandler) getTypeIDTypeMappingsFromDb(typeIDs []int64) (map[int64]*EventType, error) {
-	// returns a map of Type id and Type
-	fn := "getTypeIDTypeMappingsFromDb"
-	lenIDs := len(typeIDs)
-
-	if lenIDs == 0 {
-		return map[int64]*EventType{}, nil
-	}
-
-	paramsS := ""
-	if lenIDs == 1 {
-		paramsS = "?"
-	} else {
-		paramsS = "?" + strings.Repeat(", ?", lenIDs-1)
-	}
-
-	query := fmt.Sprintf(queryGetEventType, paramsS)
-
-	params := make([]interface{}, lenIDs)
-	for i, typeID := range typeIDs {
-		params[i] = typeID
-	}
-
-	rows, err := handler.db.Query(query, params...)
-	if err != nil {
-		return nil, deepError.New(fn, "query", err)
-	}
-	defer rows.Close()
-
-	mapTypeIDType := make(map[int64]*EventType, 0)
-	for rows.Next() {
-		eventType := &EventType{}
-		rows.Scan(&eventType.DbID, &eventType.Value, &eventType.CreatedAt, &eventType.UpdatedAt, &eventType.Status)
-
-		mapTypeIDType[eventType.DbID] = eventType
-	}
-
-	return mapTypeIDType, nil
-}
-
-func (handler *EventsHandler) getEventIDTagMappingsFromDb(eventIDs []int64) (map[int64]*EventTag, error) {
-	// returns a map of EventID and Event Tag
-	fn := "getEventIDTagMappingsFromDb"
-	lenIDs := len(eventIDs)
-
-	if lenIDs == 0 {
-		return map[int64]*EventTag{}, nil
-	}
-
-	paramsS := ""
-	if lenIDs == 1 {
-		paramsS = "?"
-	} else {
-		paramsS = "?" + strings.Repeat(", ?", lenIDs-1)
-	}
-
-	query := fmt.Sprintf(queryGetEventTags, paramsS)
-
-	params := make([]interface{}, lenIDs)
-	for i, eventID := range eventIDs {
-		params[i] = eventID
-	}
-
-	rows, err := handler.db.Query(query, params...)
-	if err != nil {
-		return nil, deepError.New(fn, "query", err)
-	}
-	defer rows.Close()
-
-	mapEventIDTag := make(map[int64]*EventTag, 0)
-	for rows.Next() {
-		eventTag := &EventTag{}
-		var eventID int64
-		rows.Scan(&eventTag.DbID, &eventTag.Value, &eventTag.CreatedAt, &eventTag.UpdatedAt, &eventTag.Status, &eventID)
-
-		mapEventIDTag[eventID] = eventTag
-	}
-
-	return mapEventIDTag, nil
 }

@@ -3,8 +3,9 @@ Duration would be handled by adding two events, one start, one end.
 
 Event model:
 
+ID
 Title
 Notes
-Timestamp
+UserCreatedAt
 Type (START, END, PAUSE, DISTRACTION)
 Tags

@@ -23,12 +23,14 @@ func GetEventsHandler(env *env) func(w http.ResponseWriter, r *http.Request) {
 		events, err := env.EventsHandler.GetAllEvents()
 		if err != nil {
 			handleHTTPError(w, err)
+			return
 		}
 
 		resp := EventsResponse{events}
 		eventJSON, err := json.Marshal(resp)
 		if err != nil {
 			handleHTTPError(w, err)
+			return
 		}
 
 		io.WriteString(w, string(eventJSON))
@@ -45,12 +47,14 @@ func GetEventHandler(env *env) func(w http.ResponseWriter, r *http.Request) {
 		event, err := env.EventsHandler.GetEvent(eventID)
 		if err != nil {
 			handleHTTPError(w, err)
+			return
 		}
 
 		resp := EventResponse{event}
 		eventJSON, err := json.Marshal(resp)
 		if err != nil {
 			handleHTTPError(w, err)
+			return
 		}
 
 		io.WriteString(w, string(eventJSON))

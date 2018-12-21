@@ -16,21 +16,21 @@ const (
 
 // DbRecord is the base model for a database struct
 type DbRecord struct {
-	DbID      int64
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Status    string
+	DbID      int64     `json:"-"`
+	CreatedAt time.Time `json:"-"`
+	UpdatedAt time.Time `json:"-"`
+	Status    string    `json:"-"`
 }
 
 // Event is the Db model to represent the event in a person's life.
 type Event struct {
 	DbRecord
-	ID        string      `json:"id"`
-	Title     string      `json:"title"`
-	Note      string      `json:"note"`
-	Timestamp time.Time   `json:"timestamp"`
-	Type      *EventType  `json:"type"`
-	Tags      []*EventTag `json:"tags"`
+	ID            string      `json:"id"`
+	Title         string      `json:"title"`
+	Note          string      `json:"note"`
+	UserCreatedAt time.Time   `json:"created_at"`
+	Type          *EventType  `json:"type"`
+	Tags          []*EventTag `json:"tags"`
 }
 
 // EventType is the Db model for the type of the event. Can be start/end/distraction or anything else.

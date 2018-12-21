@@ -14,15 +14,17 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func HandleTestError(t *testing.T, err error) {
+func HandleTestError(t *testing.T, from string, err error) {
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Error in %s\n%s", from, err)
 	}
 }
 
 func TestHealthCheck(t *testing.T) {
+	fn := "TestHealthCheck"
+
 	req, err := http.NewRequest(httpGET, routeGetHealth, nil)
-	HandleTestError(t, err)
+	HandleTestError(t, fn, err)
 
 	rr := httptest.NewRecorder()
 	router := mux.NewRouter()
@@ -42,6 +44,8 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestCreateEvent(t *testing.T) {
+	fn := "TestCreateEvent"
+
 	router := mux.NewRouter()
 	env := &env{
 		&TestEventHandler{},
@@ -54,7 +58,7 @@ func TestCreateEvent(t *testing.T) {
 		{
 			"title": "Test Event",
 			"note": "Some Test note",
-			"timestamp": "2018-11-25T11:26:08+00:00",
+			"created_at": "2018-11-25T11:26:08Z",
 			"type": {
 				"value": "start"
 			},
@@ -69,25 +73,25 @@ func TestCreateEvent(t *testing.T) {
 		}`
 
 	eventID, err := CreateEvent(router, eventJSON)
-	HandleTestError(t, err)
+	HandleTestError(t, fn, err)
 
 	actual, err := GetEvent(router, eventID)
-	HandleTestError(t, err)
+	HandleTestError(t, fn, err)
 
-	expectedTime, err := time.Parse(time.RFC3339, "2018-11-25T11:26:08+00:00")
-	HandleTestError(t, err)
+	expectedTime, err := time.Parse(time.RFC3339, "2018-11-25T11:26:08Z")
+	HandleTestError(t, fn, err)
 
 	expected := &Event{
-		ID:        eventID,
-		Title:     "Test Event",
-		Note:      "Some Test note",
-		Timestamp: expectedTime,
-		Type:      &EventType{Value: "start"},
-		Tags:      []*EventTag{{Value: "test1"}, {Value: "test2"}},
+		ID:            eventID,
+		Title:         "Test Event",
+		Note:          "Some Test note",
+		UserCreatedAt: expectedTime,
+		Type:          &EventType{Value: "start"},
+		Tags:          []*EventTag{{Value: "test1"}, {Value: "test2"}},
 	}
 
 	if !cmp.Equal(expected, actual) {
-		t.Errorf("Didnt' get event as expected\nExpected: %+v\nGot: %+v", expected, actual)
+		t.Fatalf("Didnt' get event as expected\nExpected: %+v\nActual: %+v", expected, actual)
 	}
 }
 
