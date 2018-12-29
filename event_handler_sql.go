@@ -101,7 +101,7 @@ func (handler *EventsHandler) GetEvent(eventID string) (*Event, error) {
 	}
 
 	if len(events) == 0 {
-		return nil, deepError.New(fn, "Not found", err)
+		return nil, nil
 	}
 
 	return events[0], nil

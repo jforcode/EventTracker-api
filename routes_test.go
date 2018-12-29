@@ -106,18 +106,65 @@ func CreateEvent(router *mux.Router, eventJSON string) (string, error) {
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
-		return "", fmt.Errorf("Status Not OK. Got status code: %d", status)
+		return "", fmt.Errorf("Status Not OK. Got: %s", rr.Body)
 	}
 
-	resp, err := ioutil.ReadAll(rr.Body)
+	respJSON, err := ioutil.ReadAll(rr.Body)
+	if err != nil {
+		return "", err
+	}
+
+	resp := Response{}
+	err = json.Unmarshal(respJSON, &resp)
+	if err != nil {
+		return "", err
+	}
+
+	dataJSON, err := json.Marshal(resp.Data)
 	if err != nil {
 		return "", err
 	}
 
 	eventIDResp := EventIDResponse{}
-	err = json.Unmarshal(resp, &eventIDResp)
+	err = json.Unmarshal(dataJSON, &eventIDResp)
 	if err != nil {
 		return "", err
+	}
+
+	return eventIDResp.EventID, nil
+}
+
+func ExecAPICallAndGetStruct(router *mux.Router, req http.Request, toStruct interface{}) error {
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		return fmt.Errorf("Status Not OK. Got: %s", rr.Body)
+	}
+
+	respJSON, err := ioutil.ReadAll(rr.Body)
+	if err != nil {
+		return err
+	}
+
+	resp := Response{}
+	err = json.Unmarshal(respJSON, &resp)
+	if err != nil {
+		return err
+	}
+
+	// why this?
+	// the Response struct has a Data field which is basically an interface
+	// when we read a Response JSON into Response struct, it comes as interface which in turn comes as a generic map[string]interface{}
+	// for further processing
+	dataJSON, err := json.Marshal(resp.Data)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(dataJSON, &toStruct)
+	if err != nil {
+		return err
 	}
 
 	return eventIDResp.EventID, nil
@@ -139,6 +186,12 @@ func GetEvent(router *mux.Router, eventID string) (*Event, error) {
 	}
 
 	respGet, err := ioutil.ReadAll(rr.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	respJSON := Response{}
+	err = json.Unmarshal(respGet, &respJSON)
 	if err != nil {
 		return nil, err
 	}

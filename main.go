@@ -2,9 +2,12 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/jforcode/Go-Util"
 
@@ -23,6 +26,23 @@ const (
 	routeGetEventF   = "/events/%s"
 	routeCreateEvent = "/event"
 )
+
+// ResponseError is the error format in case of any error, be it internal or user-defined
+type ResponseError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+func (err *ResponseError) Error() string {
+	return strconv.Itoa(err.Code) + " : " + err.Message
+}
+
+// Response is the final response sent to the client
+type Response struct {
+	Success bool           `json:"success"`
+	Data    interface{}    `json:"data"`
+	Error   *ResponseError `json:"error"`
+}
 
 // EventIDResponse represents the response to send back to client, in case of create event
 type EventIDResponse struct {
@@ -79,7 +99,37 @@ func getDbFromProps(p *properties.Properties) (*sql.DB, error) {
 	return util.Db.GetDb(user, password, host, database, flags)
 }
 
+func handleHTTPSuccess(w http.ResponseWriter, data interface{}) {
+	resp := Response{
+		Success: true,
+		Data:    data,
+		Error:   nil,
+	}
+
+	respJSON, err := json.Marshal(resp)
+	if err != nil {
+		handleHTTPError(w, err)
+		return
+	}
+
+	io.WriteString(w, string(respJSON))
+}
+
 func handleHTTPError(w http.ResponseWriter, err error) {
 	fmt.Printf("Http error occured: %s\n", err.Error())
-	http.Error(w, err.Error(), http.StatusInternalServerError)
+	resp := Response{
+		Success: false,
+		Data:    nil,
+		Error: &ResponseError{
+			Code:    0,
+			Message: err.Error(),
+		},
+	}
+
+	respJSON, err := json.Marshal(resp)
+	if err != nil {
+		io.WriteString(w, err.Error())
+	} else {
+		io.WriteString(w, string(respJSON))
+	}
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -26,14 +27,7 @@ func GetEventsHandler(env *env) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		resp := EventsResponse{events}
-		eventJSON, err := json.Marshal(resp)
-		if err != nil {
-			handleHTTPError(w, err)
-			return
-		}
-
-		io.WriteString(w, string(eventJSON))
+		handleHTTPSuccess(w, EventsResponse{Events: events})
 	}
 }
 
@@ -49,15 +43,12 @@ func GetEventHandler(env *env) func(w http.ResponseWriter, r *http.Request) {
 			handleHTTPError(w, err)
 			return
 		}
-
-		resp := EventResponse{event}
-		eventJSON, err := json.Marshal(resp)
-		if err != nil {
-			handleHTTPError(w, err)
+		if event == nil {
+			handleHTTPError(w, errors.New("Event with ID not found"))
 			return
 		}
 
-		io.WriteString(w, string(eventJSON))
+		handleHTTPSuccess(w, EventResponse{Event: event})
 	}
 }
 
@@ -84,13 +75,6 @@ func CreateEventHandler(env *env) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		respJSON := EventIDResponse{eventID}
-		resp, err := json.Marshal(respJSON)
-		if err != nil {
-			handleHTTPError(w, err)
-			return
-		}
-
-		io.WriteString(w, string(resp))
+		handleHTTPSuccess(w, EventIDResponse{EventID: eventID})
 	}
 }
