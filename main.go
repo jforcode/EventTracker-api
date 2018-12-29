@@ -13,11 +13,6 @@ import (
 )
 
 const (
-	httpGET  = "GET"
-	httpPOST = "POST"
-)
-
-const (
 	paramEventID = "{eventID}"
 )
 
@@ -65,10 +60,10 @@ func main() {
 
 	router := mux.NewRouter()
 
-	router.HandleFunc(routeGetHealth, HealthCheckHandler(env)).Methods(httpGET)
-	router.HandleFunc(routeGetEvents, GetEventsHandler(env)).Methods(httpGET)
-	router.HandleFunc(routeGetEvent, GetEventHandler(env)).Methods(httpGET)
-	router.HandleFunc(routeCreateEvent, CreateEventHandler(env)).Methods(httpPOST)
+	router.HandleFunc(routeGetHealth, HealthCheckHandler(env)).Methods(http.MethodGet)
+	router.HandleFunc(routeGetEvents, GetEventsHandler(env)).Methods(http.MethodGet)
+	router.HandleFunc(routeGetEvent, GetEventHandler(env)).Methods(http.MethodGet)
+	router.HandleFunc(routeCreateEvent, CreateEventHandler(env)).Methods(http.MethodPost)
 
 	log.Fatal(http.ListenAndServe(url, router))
 }

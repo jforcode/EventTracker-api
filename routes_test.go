@@ -23,7 +23,7 @@ func HandleTestError(t *testing.T, from string, err error) {
 func TestHealthCheck(t *testing.T) {
 	fn := "TestHealthCheck"
 
-	req, err := http.NewRequest(httpGET, routeGetHealth, nil)
+	req, err := http.NewRequest(http.MethodGet, routeGetHealth, nil)
 	HandleTestError(t, fn, err)
 
 	rr := httptest.NewRecorder()
@@ -51,8 +51,8 @@ func TestCreateEvent(t *testing.T) {
 		&TestEventHandler{},
 	}
 
-	router.HandleFunc(routeCreateEvent, CreateEventHandler(env)).Methods(httpPOST)
-	router.HandleFunc(routeGetEvent, GetEventHandler(env)).Methods(httpGET)
+	router.HandleFunc(routeCreateEvent, CreateEventHandler(env)).Methods(http.MethodPost)
+	router.HandleFunc(routeGetEvent, GetEventHandler(env)).Methods(http.MethodGet)
 
 	eventJSON := `
 		{
@@ -96,7 +96,7 @@ func TestCreateEvent(t *testing.T) {
 }
 
 func CreateEvent(router *mux.Router, eventJSON string) (string, error) {
-	req, err := http.NewRequest(httpPOST, routeCreateEvent, strings.NewReader(eventJSON))
+	req, err := http.NewRequest(http.MethodPost, routeCreateEvent, strings.NewReader(eventJSON))
 	if err != nil {
 		return "", err
 	}
@@ -125,7 +125,7 @@ func CreateEvent(router *mux.Router, eventJSON string) (string, error) {
 
 func GetEvent(router *mux.Router, eventID string) (*Event, error) {
 	path := fmt.Sprintf(routeGetEventF, eventID)
-	req, err := http.NewRequest(httpGET, path, nil)
+	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func GetEvent(router *mux.Router, eventID string) (*Event, error) {
 }
 
 func GetAllEvents(router *mux.Router) ([]*Event, error) {
-	req, err := http.NewRequest(httpGET, routeGetEvents, nil)
+	req, err := http.NewRequest(http.MethodGet, routeGetEvents, nil)
 	if err != nil {
 		return nil, err
 	}
