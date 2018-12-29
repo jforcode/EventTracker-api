@@ -19,8 +19,8 @@ const (
 const (
 	routeGetHealth   = "/health"
 	routeGetEvents   = "/events"
-	routeGetEvent    = "/event/" + paramEventID
-	routeGetEventF   = "/event/%s"
+	routeGetEvent    = "/events/" + paramEventID
+	routeGetEventF   = "/events/%s"
 	routeCreateEvent = "/event"
 )
 
