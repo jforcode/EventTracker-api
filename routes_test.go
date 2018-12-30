@@ -1,46 +1,39 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/mux"
+	"github.com/jforcode/Go-Util"
 )
-
-func HandleTestError(t *testing.T, from string, err error) {
-	if err != nil {
-		t.Fatalf("Error in %s\n%s", from, err)
-	}
-}
 
 func TestHealthCheck(t *testing.T) {
 	fn := "TestHealthCheck"
 
+	router := mux.NewRouter()
+	router.HandleFunc(routeGetHealth, HealthCheckHandler(nil))
+
 	req, err := http.NewRequest(http.MethodGet, routeGetHealth, nil)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 
 	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	env := &env{}
-
-	router.HandleFunc(routeGetHealth, HealthCheckHandler(env))
 	router.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("Handler returned wrong status code. Wanted %+v. Got %+v", http.StatusOK, status)
-	}
+	util.Test.AssertEquals(t, http.StatusOK, rr.Code, fn+": Wrong Status Code")
 
-	expected := "Alive!"
-	if actual := rr.Body.String(); actual != expected {
-		t.Errorf("Handler returned wrong response. Wanted %+v. Got %+v", expected, actual)
-	}
+	expected := `
+		{
+			"success": true,
+			"data": "Alive!",
+			"error": null
+		}`
+
+	util.Test.AssertJSONEquals(t, expected, rr.Body.String(), "Health Check failed")
 }
 
 func TestCreateEvent(t *testing.T) {
@@ -52,183 +45,129 @@ func TestCreateEvent(t *testing.T) {
 	}
 
 	router.HandleFunc(routeCreateEvent, CreateEventHandler(env)).Methods(http.MethodPost)
+
+	eventJSON := GetTestEventJSON("")
+
+	req, err := http.NewRequest(http.MethodPost, routeCreateEvent, strings.NewReader(eventJSON))
+	util.Test.HandleIfTestError(t, err, fn)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	util.Test.AssertEquals(t, http.StatusOK, rr.Code, fn+": Wrong Status Code")
+	util.Test.AssertEquals(t, true, strings.Contains(rr.Body.String(), `"success":true`), fmt.Sprintf("Unsuccessful request: %+v", rr.Body))
+}
+
+func TestGetEvent(t *testing.T) {
+	fn := "TestGetEvent"
+
+	router := mux.NewRouter()
+	env := &env{
+		&TestEventHandler{},
+	}
+
 	router.HandleFunc(routeGetEvent, GetEventHandler(env)).Methods(http.MethodGet)
 
-	eventJSON := `
+	eventID, err := env.EventsHandler.CreateEvent(GetTestEvent())
+	util.Test.HandleIfTestError(t, err, fn)
+
+	url := fmt.Sprintf(routeGetEventF, eventID)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	util.Test.HandleIfTestError(t, err, fn)
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	util.Test.AssertEquals(t, http.StatusOK, rr.Code, fn+": Wrong Status Code")
+
+	expected := `
 		{
-			"title": "Test Event",
-			"note": "Some Test note",
-			"created_at": "2018-11-25T11:26:08Z",
-			"type": {
-				"value": "start"
+			"success": true,
+			"data": {
+				"event": ` + GetTestEventJSON(eventID) + `
 			},
-			"tags": [
-				{
-					"value": "test1"
-				},
-				{
-					"value": "test2"
-				}
-			]
+			"error": null
 		}`
 
-	eventID, err := CreateEvent(router, eventJSON)
-	HandleTestError(t, fn, err)
-
-	actual, err := GetEvent(router, eventID)
-	HandleTestError(t, fn, err)
-
-	expectedTime, err := time.Parse(time.RFC3339, "2018-11-25T11:26:08Z")
-	HandleTestError(t, fn, err)
-
-	expected := &Event{
-		ID:            eventID,
-		Title:         "Test Event",
-		Note:          "Some Test note",
-		UserCreatedAt: expectedTime,
-		Type:          &EventType{Value: "start"},
-		Tags:          []*EventTag{{Value: "test1"}, {Value: "test2"}},
-	}
-
-	if !cmp.Equal(expected, actual) {
-		t.Fatalf("Didnt' get event as expected\nExpected: %+v\nActual: %+v", expected, actual)
-	}
+	util.Test.AssertJSONEquals(t, expected, rr.Body.String(), "Invalid Event")
 }
 
-func CreateEvent(router *mux.Router, eventJSON string) (string, error) {
-	req, err := http.NewRequest(http.MethodPost, routeCreateEvent, strings.NewReader(eventJSON))
-	if err != nil {
-		return "", err
+func TestGetAllEvents(t *testing.T) {
+	fn := "TestGetAllEvents"
+
+	router := mux.NewRouter()
+	env := &env{
+		&TestEventHandler{},
 	}
 
-	rr := httptest.NewRecorder()
+	router.HandleFunc(routeGetEvents, GetEventsHandler(env)).Methods(http.MethodGet)
 
-	router.ServeHTTP(rr, req)
+	eventID1, err := env.EventsHandler.CreateEvent(GetTestEvent())
+	util.Test.HandleIfTestError(t, err, fn)
+	eventID2, err := env.EventsHandler.CreateEvent(GetTestEvent())
+	util.Test.HandleIfTestError(t, err, fn)
 
-	if status := rr.Code; status != http.StatusOK {
-		return "", fmt.Errorf("Status Not OK. Got: %s", rr.Body)
-	}
-
-	respJSON, err := ioutil.ReadAll(rr.Body)
-	if err != nil {
-		return "", err
-	}
-
-	resp := Response{}
-	err = json.Unmarshal(respJSON, &resp)
-	if err != nil {
-		return "", err
-	}
-
-	dataJSON, err := json.Marshal(resp.Data)
-	if err != nil {
-		return "", err
-	}
-
-	eventIDResp := EventIDResponse{}
-	err = json.Unmarshal(dataJSON, &eventIDResp)
-	if err != nil {
-		return "", err
-	}
-
-	return eventIDResp.EventID, nil
-}
-
-func ExecAPICallAndGetStruct(router *mux.Router, req http.Request, toStruct interface{}) error {
-	rr := httptest.NewRecorder()
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusOK {
-		return fmt.Errorf("Status Not OK. Got: %s", rr.Body)
-	}
-
-	respJSON, err := ioutil.ReadAll(rr.Body)
-	if err != nil {
-		return err
-	}
-
-	resp := Response{}
-	err = json.Unmarshal(respJSON, &resp)
-	if err != nil {
-		return err
-	}
-
-	// why this?
-	// the Response struct has a Data field which is basically an interface
-	// when we read a Response JSON into Response struct, it comes as interface which in turn comes as a generic map[string]interface{}
-	// for further processing
-	dataJSON, err := json.Marshal(resp.Data)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(dataJSON, &toStruct)
-	if err != nil {
-		return err
-	}
-
-	return eventIDResp.EventID, nil
-}
-
-func GetEvent(router *mux.Router, eventID string) (*Event, error) {
-	path := fmt.Sprintf(routeGetEventF, eventID)
-	req, err := http.NewRequest(http.MethodGet, path, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	rr := httptest.NewRecorder()
-
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusOK {
-		return nil, fmt.Errorf("Status Not OK. Got status code: %d", status)
-	}
-
-	respGet, err := ioutil.ReadAll(rr.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	respJSON := Response{}
-	err = json.Unmarshal(respGet, &respJSON)
-	if err != nil {
-		return nil, err
-	}
-
-	eventResp := EventResponse{}
-	err = json.Unmarshal(respGet, &eventResp)
-	if err != nil {
-		return nil, err
-	}
-
-	return eventResp.Event, nil
-}
-
-func GetAllEvents(router *mux.Router) ([]*Event, error) {
 	req, err := http.NewRequest(http.MethodGet, routeGetEvents, nil)
-	if err != nil {
-		return nil, err
-	}
+	util.Test.HandleIfTestError(t, err, fn)
 
 	rr := httptest.NewRecorder()
-
 	router.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		return nil, fmt.Errorf("Status Not OK. Got status code: %d", status)
-	}
+	util.Test.AssertEquals(t, http.StatusOK, rr.Code, fn+": Wrong Status Code")
 
-	respGet, err := ioutil.ReadAll(rr.Body)
-	if err != nil {
-		return nil, err
-	}
+	expected := `
+		{
+			"success": true,
+			"data": {
+				"events": [
+					` + GetTestEventJSON(eventID1) + `,
+					` + GetTestEventJSON(eventID2) + `
+				]
+			},
+			"error": null
+		}`
 
-	event := []*Event{}
-	err = json.Unmarshal(respGet, &event)
-	if err != nil {
-		return nil, err
-	}
+	util.Test.AssertJSONEquals(t, expected, rr.Body.String(), "Invalid Event")
+}
 
-	return event, nil
+// thought of refactoring GetTestEvent and GetTestEventJSON and putting as test data
+// will do later if required, right now not that much data to make it feasible
+
+func GetTestEvent() *Event {
+	mTime, _ := time.Parse(time.RFC3339, "2018-11-25T11:26:08Z")
+
+	return &Event{
+		Title: "Test Event",
+		Note:  "Some Test note",
+		Tags: []*EventTag{
+			&EventTag{Value: "test1"},
+			&EventTag{Value: "test2"},
+		},
+		Type:          &EventType{Value: "start"},
+		UserCreatedAt: mTime,
+	}
+}
+
+func GetTestEventJSON(eventID string) string {
+	eventIDPart := ""
+	if eventID != "" {
+		eventIDPart = fmt.Sprintf(`"id": "%s",`, eventID)
+	}
+	return `{
+				` + eventIDPart + `
+				"title": "Test Event",
+				"note": "Some Test note",
+				"created_at": "2018-11-25T11:26:08Z",
+				"type": {
+					"value": "start"
+				},
+				"tags": [
+					{
+						"value": "test1"
+					},
+					{
+						"value": "test2"
+					}
+				]
+			}`
 }

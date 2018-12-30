@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -13,7 +12,7 @@ import (
 // HealthCheckHandler is an api route to just check the health of the api.
 func HealthCheckHandler(env *env) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "Alive!")
+		handleHTTPSuccess(w, "Alive!")
 	}
 }
 

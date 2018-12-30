@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/jforcode/Go-Util"
 	"github.com/magiconair/properties"
 )
@@ -28,7 +27,7 @@ func TestGetEventDao(t *testing.T) {
 	db := InitDb()
 
 	err := util.Db.ClearTables(db, eventTagMapTableName, eventsTableName, eventTagsTableName)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 
 	defer util.Db.ClearTables(db, eventTagMapTableName, eventsTableName, eventTagsTableName)
 
@@ -36,13 +35,13 @@ func TestGetEventDao(t *testing.T) {
 	handler.Init(db)
 
 	eventType, err := handler.dbStuff.findEventTypeByValue("start")
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 
 	now := time.Now()
 	event := &Event{
-		ID:        "TestEvent",
-		Title:     "Some Test Event",
-		Note:      "Some Test Note",
+		ID:            "TestEvent",
+		Title:         "Some Test Event",
+		Note:          "Some Test Note",
 		UserCreatedAt: now,
 		Type: &EventType{
 			DbRecord: DbRecord{DbID: eventType.DbID},
@@ -50,23 +49,23 @@ func TestGetEventDao(t *testing.T) {
 	}
 
 	eventDbID, err := handler.dbStuff.insertEvent(event)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 
 	tag1 := &EventTag{Value: "tag1"}
 	tag1ID, err := handler.dbStuff.insertEventTag(tag1)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 
 	tag2 := &EventTag{Value: "tag2"}
 	tag2ID, err := handler.dbStuff.insertEventTag(tag2)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 
 	tag1Map := &EventTagMap{EventID: eventDbID, TagID: tag1ID}
 	_, err = handler.dbStuff.insertEventTagMapping(tag1Map)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 
 	tag2Map := &EventTagMap{EventID: eventDbID, TagID: tag2ID}
 	_, err = handler.dbStuff.insertEventTagMapping(tag2Map)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 
 	expectedEvent := &Event{
 		DbRecord: DbRecord{DbID: eventDbID, Status: statusActive},
@@ -91,9 +90,9 @@ func TestGetEventDao(t *testing.T) {
 	}
 
 	actualEvent, err := handler.GetEvent("TestEvent")
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 	if actualEvent == nil || actualEvent.Type == nil || actualEvent.Tags == nil || len(actualEvent.Tags) != len(expectedEvent.Tags) {
-		HandleTestError(t, fn, errors.New("Got invalid event data"))
+		util.Test.HandleIfTestError(t, errors.New("Got invalid event data"), fn)
 	}
 
 	actualEvent.CreatedAt = expectedEvent.CreatedAt
@@ -106,9 +105,7 @@ func TestGetEventDao(t *testing.T) {
 		actTag.UpdatedAt = expTag.UpdatedAt
 	}
 
-	if !cmp.Equal(actualEvent, expectedEvent) {
-		HandleTestError(t, fn, errors.New("Actual event and expected events don't match"))
-	}
+	util.Test.AssertEquals(t, expectedEvent, actualEvent, "Events don't match")
 }
 
 func TestCreateEventDao(t *testing.T) {
@@ -116,7 +113,7 @@ func TestCreateEventDao(t *testing.T) {
 	db := InitDb()
 
 	err := util.Db.ClearTables(db, eventTagMapTableName, eventsTableName, eventTagsTableName)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 
 	defer util.Db.ClearTables(db, eventTagMapTableName, eventsTableName, eventTagsTableName)
 
@@ -138,12 +135,12 @@ func TestCreateEventDao(t *testing.T) {
 	}
 
 	eventID, err := handler.CreateEvent(event)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 
 	eventType, err1 := handler.dbStuff.findEventTypeByValue("start")
-	HandleTestError(t, fn, err1)
+	util.Test.HandleIfTestError(t, err1, fn)
 	if eventType == nil {
-		HandleTestError(t, fn, errors.New("Event Type not found"))
+		util.Test.HandleIfTestError(t, errors.New("Event Type not found"), fn)
 	}
 
 	queryEvents := fmt.Sprintf(
@@ -154,9 +151,10 @@ func TestCreateEventDao(t *testing.T) {
 	equalEvents, err := util.Db.CompareDbData(db, queryEvents, make([]interface{}, 0), 5, [][]string{
 		{eventID, "Some Test Event", "Some Test Note", typeIDStr, now.UTC().Format(time.RFC3339Nano)},
 	}, false)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
+
 	if !equalEvents {
-		HandleTestError(t, fn, errors.New("Invalid event data"))
+		util.Test.HandleIfTestError(t, errors.New("Invalid Event Data"), fn)
 	}
 
 	queryTags := fmt.Sprintf(
@@ -167,17 +165,17 @@ func TestCreateEventDao(t *testing.T) {
 		{"tag1"},
 		{"tag2"},
 	}, false)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 	if !equalTags {
-		HandleTestError(t, fn, errors.New("Invalid tags data"))
+		util.Test.HandleIfTestError(t, errors.New("Invalid Tags Data"), fn)
 	}
 
 	dbEvent, err := handler.dbStuff.findEventByID(eventID)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 	tag1, err := handler.dbStuff.findEventTagByValue("tag1")
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 	tag2, err := handler.dbStuff.findEventTagByValue("tag2")
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 
 	queryTagMaps := fmt.Sprintf(
 		"SELECT %s, %s FROM %s",
@@ -192,8 +190,8 @@ func TestCreateEventDao(t *testing.T) {
 		{eventIDStr, tag1IDStr},
 		{eventIDStr, tag2IDStr},
 	}, false)
-	HandleTestError(t, fn, err)
+	util.Test.HandleIfTestError(t, err, fn)
 	if !equalTagMaps {
-		HandleTestError(t, fn, errors.New("Invalid tag event maps data"))
+		util.Test.HandleIfTestError(t, errors.New("Invalid Tag Map Data"), fn)
 	}
 }
