@@ -118,13 +118,18 @@ func (handler *EventsHandler) CreateEvent(event *Event) (string, error) {
 	}
 	event.Type = eventType
 
-	updatedEventTags := make([]*EventTag, len(event.Tags))
-	for index, eventTag := range event.Tags {
+	updatedEventTags := make([]*EventTag, 0)
+	for _, eventTag := range event.Tags {
+		if eventTag == nil {
+			fmt.Println("Got a nil tag")
+			continue
+		}
+
 		foundEventTag, err2 := handler.findOrCreateEventTag(eventTag.Value)
 		if err2 != nil {
 			return "", deepError.New(fn, "find or create event tag", err2)
 		}
-		updatedEventTags[index] = foundEventTag
+		updatedEventTags = append(updatedEventTags, foundEventTag)
 	}
 	event.Tags = updatedEventTags
 

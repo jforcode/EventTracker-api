@@ -7,10 +7,12 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/jforcode/Go-Util"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/magiconair/properties"
 )
@@ -79,13 +81,14 @@ func main() {
 	}
 
 	router := mux.NewRouter()
+	loggedRouter := handlers.LoggingHandler(os.Stdout, router)
 
 	router.HandleFunc(routeGetHealth, HealthCheckHandler(env)).Methods(http.MethodGet)
 	router.HandleFunc(routeGetEvents, GetEventsHandler(env)).Methods(http.MethodGet)
 	router.HandleFunc(routeGetEvent, GetEventHandler(env)).Methods(http.MethodGet)
 	router.HandleFunc(routeCreateEvent, CreateEventHandler(env)).Methods(http.MethodPost)
 
-	log.Fatal(http.ListenAndServe(url, router))
+	log.Fatal(http.ListenAndServe(url, loggedRouter))
 }
 
 func getDbFromProps(p *properties.Properties) (*sql.DB, error) {
